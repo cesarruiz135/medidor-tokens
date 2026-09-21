@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Transmisión</title>
+    <!-- Librería de Confeti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            background-color: transparent; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            gap: 20px;
+        }
+        .card {
+            background: #18191c;
+            border: 1px solid #2f3136;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            text-align: center;
+            width: 300px;
+            position: relative;
+        }
+        h2 {
+            color: #00ffcc;
+            margin: 0 0 5px 0;
+            font-size: 1.3rem;
+            text-shadow: 0 0 10px rgba(0,255,204,0.3);
+        }
+        #nombreUsuario, #nombreHoras {
+            color: #b9bbbe;
+            font-size: 1rem;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .gauge-container {
+            position: relative;
+            width: 220px;
+            height: 110px;
+            margin: 0 auto 15px auto;
+            overflow: hidden;
+        }
+        .gauge-bg {
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            background: conic-gradient(from 270deg, #ffd700 0deg, #00ffcc 180deg, transparent 180deg);
+            position: absolute;
+            top: 0;
+            left: 0;
+            clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
+        }
+        .gauge-cover {
+            width: 170px;
+            height: 170px;
+            background: #18191c;
+            border-radius: 50%;
+            position: absolute;
+            top: 25px;
+            left: 25px;
+        }
+        .needle {
+            width: 4px;
+            height: 85px;
+            background: white;
+            position: absolute;
+            bottom: 0;
+            left: 108px;
+            transform-origin: bottom center;
+            transform: rotate(-90deg);
+            transition: transform 0.8s cubic-bezier(0.4, 2.08, 0.55, 0.44);
+            border-radius: 4px 4px 0 0;
+            box-shadow: 0 0 8px rgba(255,255,255,0.8);
+        }
+        .needle-center {
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            bottom: -8px;
+            left: 102px;
+            box-shadow: 0 0 10px rgba(255,255,255,0.8);
+        }
+        .stats {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #00ffcc;
+            text-shadow: 0 0 8px rgba(0,255,204,0.4);
+        }
+        .error-msg {
+            color: #ff5252;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        #unlockAudio {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #00ffcc;
+            color: #121212;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.9rem;
+            z-index: 999;
+            box-shadow: 0 4px 10px rgba(0,255,204,0.4);
+        }
+        #eventoNotificacion {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #ffd700;
+            min-height: 18px;
+        }
+    </style>
+</head>
+<body>
+
+    <button id="unlockAudio" onclick="activarAudio()">🔊 Clic aquí para habilitar Audio</button>
+
+    <!-- TARJETA 1: MEDIDOR DE TOKENS -->
+    <div class="card" id="cardContainer">
+        <h2>Medidor de Tokens</h2>
+        <div id="nombreUsuario">Cargando...</div>
+        
+        <div class="gauge-container" id="gaugeBox">
+            <div class="gauge-bg"></div>
+            <div class="gauge-cover"></div>
+            <div class="needle" id="needleTokens"></div>
+            <div class="needle-center"></div>
+        </div>
+
+        <div class="stats" id="statsTokens">0 / 0</div>
+        <div id="eventoNotificacion"></div>
+    </div>
+
+    <!-- TARJETA 2: MEDIDOR DE HORAS -->
+    <div class="card" id="cardContainerHoras">
+        <h2>Horas Acumuladas</h2>
+        <div id="nombreHoras">Cargando...</div>
+        
+        <div class="gauge-container">
+            <div class="gauge-bg" style="background: conic-gradient(from 270deg, #3498db 0deg, #9b59b6 180deg, transparent 180deg);"></div>
+            <div class="gauge-cover"></div>
+            <div class="needle" id="needleHoras"></div>
+            <div class="needle-center"></div>
+        </div>
+
+        <div class="stats" id="statsHoras" style="color: #3498db; text-shadow: 0 0 8px rgba(52,152,219,0.4);">0 hrs</div>
+        <div style="margin-top: 10px; font-size: 0.85rem; color: #777;">Escala Máxima: 150 Horas</div>
+    </div>
+
+    <!-- Archivos de Audio -->
+    <audio id="audioToken" src="token.mp3" preload="auto"></audio>
+    <audio id="audioGuau" src="guau.mp3" preload="auto"></audio>
+    <audio id="audioMeta" src="meta.mp3" preload="auto"></audio>
+
+    <!-- Firebase y Lógica -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDTldVwHQUWlQyW2jNV8wOc_qZpFB5hPPQ",
+            authDomain: "medidor-tokens-dffe1.firebaseapp.com",
+            databaseURL: "https://medidor-tokens-dffe1-default-rtdb.firebaseio.com",
+            projectId: "medidor-tokens-dffe1",
+            storageBucket: "medidor-tokens-dffe1.firebasestorage.app",
+            messagingSenderId: "895942296701",
+            appId: "1:895942296701:web:1f1fe6075732a2d2b0dd14"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('id');
+
+        const nombreEl = document.getElementById('nombreUsuario');
+        const statsTokensEl = document.getElementById('statsTokens');
+        const needleTokensEl = document.getElementById('needleTokens');
+        const gaugeBox = document.getElementById('gaugeBox');
+        const eventoNoti = document.getElementById('eventoNotificacion');
+        
+        const nombreHorasEl = document.getElementById('nombreHoras');
+        const statsHorasEl = document.getElementById('statsHoras');
+        const needleHorasEl = document.getElementById('needleHoras');
+
+        const audioToken = document.getElementById('audioToken');
+        const audioGuau = document.getElementById('audioGuau');
+        const audioMeta = document.getElementById('audioMeta');
+
+        window.activarAudio = function() {
+            document.getElementById('unlockAudio').style.display = 'none';
+            [audioToken, audioGuau, audioMeta].forEach(audio => {
+                audio.play().then(() => {
+                    audio.pause();
+                    audio.currentTime = 0;
+                }).catch(e => {});
+            });
+            eventoNoti.innerText = "¡Audio activado correctamente!";
+            setTimeout(() => eventoNoti.innerText = "", 3000);
+        }
+
+        if (!userId) {
+            nombreEl.innerHTML = '<span class="error-msg">Falta el ?id=usuario</span>';
+            nombreHorasEl.innerHTML = '<span class="error-msg">Falta el ?id=usuario</span>';
+            gaugeBox.style.display = 'none';
+            statsTokensEl.style.display = 'none';
+            statsHorasEl.style.display = 'none';
+            document.getElementById('unlockAudio').style.display = 'none';
+        } else {
+            const userRef = ref(db, 'usuarios/' + userId);
+            let tokenAnterior = null;
+            let yaLlegoAMeta = false;
+            let yaLlegoAMitad = false;
+            const maxHorasMeta = 150; // Escala máxima de horas
+
+            onValue(userRef, (snapshot) => {
+                const data = snapshot.val();
+
+                if (!data) {
+                    nombreEl.innerText = "Usuario no encontrado";
+                    nombreHorasEl.innerText = "Usuario no encontrado";
+                    return;
+                }
+
+                const nombre = data.nombre || userId;
+                
+                // --- ACTUALIZAR TOKENS ---
+                const tokens = Number(data.tokens || 0);
+                const meta = Number(data.meta || 1000);
+                const mitadMeta = meta / 2;
+
+                nombreEl.innerText = nombre;
+                statsTokensEl.innerText = `${tokens} / ${meta}`;
+
+                let porcentajeTokens = tokens / meta;
+                if (porcentajeTokens > 1) porcentajeTokens = 1;
+                needleTokensEl.style.transform = `rotate(${-90 + (porcentajeTokens * 180)}deg)`;
+
+                if (tokenAnterior === null) {
+                    if (tokens >= meta) yaLlegoAMeta = true;
+                    if (tokens >= mitadMeta) yaLlegoAMitad = true;
+                } else if (tokens > tokenAnterior) {
+                    if (tokens >= meta && !yaLlegoAMeta) {
+                        yaLlegoAMeta = true;
+                        eventoNoti.innerText = "🎉 ¡Llegaron a la Meta!";
+                        reproducirAudio(audioMeta);
+                        lanzarConfetiMeta();
+                    } else if (tokens >= mitadMeta && tokens < meta && !yaLlegoAMitad) {
+                        yaLlegoAMitad = true;
+                        eventoNoti.innerText = "🔥 ¡A la Mitad de la Meta!";
+                        reproducirAudio(audioGuau);
+                    } else {
+                        reproducirAudio(audioToken);
+                    }
+                }
+                
+                if (tokens < meta) yaLlegoAMeta = false;
+                if (tokens < mitadMeta) yaLlegoAMitad = false;
+                tokenAnterior = tokens;
+
+                // --- ACTUALIZAR HORAS ---
+                const horas = Number(data.horas || 0);
+                nombreHorasEl.innerText = nombre;
+                statsHorasEl.innerText = `${horas} hrs`;
+
+                let porcentajeHoras = horas / maxHorasMeta;
+                if (porcentajeHoras > 1) porcentajeHoras = 1;
+                needleHorasEl.style.transform = `rotate(${-90 + (porcentajeHoras * 180)}deg)`;
+            });
+        }
+
+        function reproducirAudio(elementoAudio) {
+            elementoAudio.currentTime = 0;
+            elementoAudio.play().catch(error => {});
+        }
+
+        function lanzarConfetiMeta() {
+            confetti({
+                particleCount: 200,
+                spread: 120,
+                origin: { y: 0.6 },
+                colors: ['#00ffcc', '#ffd700', '#ffffff', '#ff4757']
+            });
+        }
+    </script>
+</body>
+</html>

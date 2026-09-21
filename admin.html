@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - Medidor</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+        .container {
+            background: #1e1e1e;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 30px;
+        }
+        h2 { color: #00ffcc; text-align: center; margin-top: 0; }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label { display: block; margin-bottom: 5px; color: #aaaaaa; }
+        input {
+            width: 100%;
+            padding: 10px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        input:disabled { background: #1a1a1a; color: #777; cursor: not-allowed; }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #00ffcc;
+            border: none;
+            border-radius: 8px;
+            color: #121212;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 10px;
+        }
+        button:hover { background: #00b38f; }
+        .user-list {
+            width: 100%;
+            max-width: 500px;
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+        .user-item {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        .user-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .user-info h4 { margin: 0 0 3px 0; color: #00ffcc; }
+        .user-info p { margin: 0; color: #888; font-size: 0.9rem; }
+        
+        .user-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .btn-action {
+            flex: 1;
+            min-width: 90px;
+            padding: 6px 8px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+        }
+        .btn-link { background: #3498db; color: white; }
+        .btn-link:hover { background: #2980b9; }
+        
+        .btn-edit { background: #f39c12; color: white; }
+        .btn-edit:hover { background: #d68910; }
+
+        .btn-add { background: #2ecc71; color: white; }
+        .btn-add:hover { background: #27ae60; }
+
+        .btn-time { background: #9b59b6; color: white; }
+        .btn-time:hover { background: #8e44ad; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2 id="formTitle">Panel Administrador</h2>
+        <form id="userForm">
+            <div class="form-group">
+                <label>ID Único (ej: juan, maria - sin espacios ni mayúsculas):</label>
+                <input type="text" id="userId" required placeholder="Ej: juan">
+            </div>
+            <div class="form-group">
+                <label>Nombre Visible:</label>
+                <input type="text" id="nombre" required placeholder="Ej: Juan Pérez">
+            </div>
+            <div class="form-group">
+                <label>Tokens Actuales:</label>
+                <input type="number" id="tokens" required value="0">
+            </div>
+            <div class="form-group">
+                <label>Meta Total de Tokens:</label>
+                <input type="number" id="meta" required value="1000">
+            </div>
+            <div class="form-group">
+                <label>Horas Acumuladas:</label>
+                <input type="number" id="horas" required value="0" step="0.5">
+            </div>
+            <button type="submit" id="btnSubmit">Guardar / Crear Usuario</button>
+        </form>
+    </div>
+
+    <div class="user-list">
+        <h3>Usuarios Registrados</h3>
+        <div id="listaUsuarios">Cargando usuarios...</div>
+    </div>
+
+    <!-- Firebase Scripts -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDTldVwHQUWlQyW2jNV8wOc_qZpFB5hPPQ",
+            authDomain: "medidor-tokens-dffe1.firebaseapp.com",
+            databaseURL: "https://medidor-tokens-dffe1-default-rtdb.firebaseio.com",
+            projectId: "medidor-tokens-dffe1",
+            storageBucket: "medidor-tokens-dffe1.firebasestorage.app",
+            messagingSenderId: "895942296701",
+            appId: "1:895942296701:web:1f1fe6075732a2d2b0dd14"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const userForm = document.getElementById('userForm');
+        const userIdInput = document.getElementById('userId');
+        const nombreInput = document.getElementById('nombre');
+        const tokensInput = document.getElementById('tokens');
+        const metaInput = document.getElementById('meta');
+        const horasInput = document.getElementById('horas');
+        const btnSubmit = document.getElementById('btnSubmit');
+        const formTitle = document.getElementById('formTitle');
+
+        userForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = userIdInput.value.trim().toLowerCase();
+            const nombre = nombreInput.value;
+            const tokens = Number(tokensInput.value);
+            const meta = Number(metaInput.value);
+            const horas = Number(horasInput.value);
+
+            set(ref(db, 'usuarios/' + id), {
+                nombre: nombre,
+                tokens: tokens,
+                meta: meta,
+                horas: horas
+            }).then(() => {
+                alert('¡Usuario guardado con éxito!');
+                userForm.reset();
+                userIdInput.disabled = false;
+                formTitle.innerText = "Panel Administrador";
+                btnSubmit.innerText = "Guardar / Crear Usuario";
+            }).catch((error) => {
+                alert('Error al guardar: ' + error.message);
+            });
+        });
+
+        window.editarUsuario = function(id, nombre, tokens, meta, horas) {
+            userIdInput.value = id;
+            userIdInput.disabled = true;
+            nombreInput.value = nombre;
+            tokensInput.value = tokens;
+            metaInput.value = meta;
+            horasInput.value = horas || 0;
+            formTitle.innerText = "Editando a: " + nombre;
+            btnSubmit.innerText = "Actualizar Cambios";
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        window.sumarTokensRapido = function(id, tokensActuales, cantidad) {
+            const nuevosTokens = Number(tokensActuales) + cantidad;
+            update(ref(db, 'usuarios/' + id), { tokens: nuevosTokens }).catch((error) => {
+                alert('Error: ' + error.message);
+            });
+        }
+
+        window.sumarHoraRapido = function(id, horasActuales, cantidad) {
+            const nuevasHoras = Number(horasActuales || 0) + cantidad;
+            update(ref(db, 'usuarios/' + id), { horas: nuevasHoras }).catch((error) => {
+                alert('Error: ' + error.message);
+            });
+        }
+
+        const usuariosRef = ref(db, 'usuarios');
+        onValue(usuariosRef, (snapshot) => {
+            const data = snapshot.val();
+            const contenedor = document.getElementById('listaUsuarios');
+            contenedor.innerHTML = '';
+
+            if (!data) {
+                contenedor.innerHTML = '<p style="color: #777;">No hay usuarios creados todavía.</p>';
+                return;
+            }
+
+            for (let id in data) {
+                const usuario = data[id];
+                const currentPath = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+                const linkMedidor = currentPath + 'index.html?id=' + id;
+                const horasVal = usuario.horas || 0;
+
+                const div = document.createElement('div');
+                div.className = 'user-item';
+                div.innerHTML = `
+                    <div class="user-header">
+                        <div class="user-info">
+                            <h4>${usuario.nombre} (${id})</h4>
+                            <p>Tokens: ${usuario.tokens} / ${usuario.meta} | Horas: ${horasVal}h</p>
+                        </div>
+                    </div>
+                    <div class="user-actions">
+                        <button class="btn-action btn-edit" onclick="editarUsuario('${id}', '${usuario.nombre}', ${usuario.tokens}, ${usuario.meta}, ${horasVal})">✏️ Editar</button>
+                        <button class="btn-action btn-add" onclick="sumarTokensRapido('${id}', ${usuario.tokens}, 50)">+50 T</button>
+                        <button class="btn-action btn-time" onclick="sumarHoraRapido('${id}', ${horasVal}, 1)">+1 Hora</button>
+                        <a href="${linkMedidor}" target="_blank" class="btn-action btn-link">🔗 Link OBS</a>
+                    </div>
+                `;
+                contenedor.appendChild(div);
+            }
+        });
+    </script>
+</body>
+</html>
