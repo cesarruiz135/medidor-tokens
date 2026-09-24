@@ -84,7 +84,7 @@
         }
         .btn-action {
             flex: 1;
-            min-width: 90px;
+            min-width: 80px;
             padding: 6px 8px;
             border: none;
             border-radius: 6px;
@@ -105,6 +105,9 @@
 
         .btn-time { background: #9b59b6; color: white; }
         .btn-time:hover { background: #8e44ad; }
+
+        .btn-delete { background: #e74c3c; color: white; }
+        .btn-delete:hover { background: #c0392b; }
     </style>
 </head>
 <body>
@@ -144,7 +147,7 @@
     <!-- Firebase Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, set, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDTldVwHQUWlQyW2jNV8wOc_qZpFB5hPPQ",
@@ -218,6 +221,17 @@
             });
         }
 
+        // Función para eliminar usuario con confirmación
+        window.eliminarUsuario = function(id, nombre) {
+            if (confirm(`¿Estás seguro de que deseas eliminar a "${nombre}" (${id})? Esta acción no se puede deshacer.`)) {
+                remove(ref(db, 'usuarios/' + id)).then(() => {
+                    alert('Usuario eliminado correctamente.');
+                }).catch((error) => {
+                    alert('Error al eliminar: ' + error.message);
+                });
+            }
+        }
+
         const usuariosRef = ref(db, 'usuarios');
         onValue(usuariosRef, (snapshot) => {
             const data = snapshot.val();
@@ -249,6 +263,7 @@
                         <button class="btn-action btn-add" onclick="sumarTokensRapido('${id}', ${usuario.tokens}, 50)">+50 T</button>
                         <button class="btn-action btn-time" onclick="sumarHoraRapido('${id}', ${horasVal}, 1)">+1 Hora</button>
                         <a href="${linkMedidor}" target="_blank" class="btn-action btn-link">🔗 Link OBS</a>
+                        <button class="btn-action btn-delete" onclick="eliminarUsuario('${id}', '${usuario.nombre}')">🗑️ Borrar</button>
                     </div>
                 `;
                 contenedor.appendChild(div);
