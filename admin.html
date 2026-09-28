@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Administración - Medidor</title>
-    <!-- Librería SheetJS para exportar a Excel de forma nativa en el navegador -->
+    <!-- Librería SheetJS para exportar a Excel -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         body {
@@ -93,7 +93,7 @@
         }
         .btn-action {
             flex: 1;
-            min-width: 75px;
+            min-width: 70px;
             padding: 6px 8px;
             border: none;
             border-radius: 6px;
@@ -111,6 +111,8 @@
         .btn-add:hover { background: #27ae60; }
         .btn-time { background: #9b59b6; color: white; }
         .btn-time:hover { background: #8e44ad; }
+        .btn-day { background: #e67e22; color: white; }
+        .btn-day:hover { background: #d35400; }
         .btn-delete { background: #e74c3c; color: white; }
         .btn-delete:hover { background: #c0392b; }
     </style>
@@ -133,16 +135,16 @@
                 <input type="number" id="tokens" required value="0">
             </div>
             <div class="form-group">
-                <label>Tokens Diarios Actuales:</label>
-                <input type="number" id="tokensDiarios" required value="0">
-            </div>
-            <div class="form-group">
                 <label>Meta Total de Tokens:</label>
                 <input type="number" id="meta" required value="1000">
             </div>
             <div class="form-group">
-                <label>Meta Diaria de Tokens:</label>
-                <input type="number" id="metaDiaria" required value="200">
+                <label>Días Laborados Actuales:</label>
+                <input type="number" id="diasTrabajados" required value="0">
+            </div>
+            <div class="form-group">
+                <label>Meta Semanal de Días:</label>
+                <input type="number" id="metaDias" required value="6">
             </div>
             <div class="form-group">
                 <label>Horas Acumuladas:</label>
@@ -180,9 +182,9 @@
         const userIdInput = document.getElementById('userId');
         const nombreInput = document.getElementById('nombre');
         const tokensInput = document.getElementById('tokens');
-        const tokensDiariosInput = document.getElementById('tokensDiarios');
         const metaInput = document.getElementById('meta');
-        const metaDiariaInput = document.getElementById('metaDiaria');
+        const diasTrabajadosInput = document.getElementById('diasTrabajados');
+        const metaDiasInput = document.getElementById('metaDias');
         const horasInput = document.getElementById('horas');
         const btnSubmit = document.getElementById('btnSubmit');
         const formTitle = document.getElementById('formTitle');
@@ -194,17 +196,17 @@
             const id = userIdInput.value.trim().toLowerCase();
             const nombre = nombreInput.value;
             const tokens = Number(tokensInput.value);
-            const tokensDiarios = Number(tokensDiariosInput.value);
             const meta = Number(metaInput.value);
-            const metaDiaria = Number(metaDiariaInput.value);
+            const diasTrabajados = Number(diasTrabajadosInput.value);
+            const metaDias = Number(metaDiasInput.value);
             const horas = Number(horasInput.value);
 
             set(ref(db, 'usuarios/' + id), {
                 nombre: nombre,
                 tokens: tokens,
-                tokensDiarios: tokensDiarios,
                 meta: meta,
-                metaDiaria: metaDiaria,
+                diasTrabajados: diasTrabajados,
+                metaDias: metaDias,
                 horas: horas
             }).then(() => {
                 alert('¡Usuario guardado con éxito!');
@@ -217,27 +219,23 @@
             });
         });
 
-        window.editarUsuario = function(id, nombre, tokens, tokensDiarios, meta, metaDiaria, horas) {
+        window.editarUsuario = function(id, nombre, tokens, meta, diasTrabajados, metaDias, horas) {
             userIdInput.value = id;
             userIdInput.disabled = true;
             nombreInput.value = nombre;
             tokensInput.value = tokens;
-            tokensDiariosInput.value = tokensDiarios || 0;
             metaInput.value = meta;
-            metaDiariaInput.value = metaDiaria || 200;
+            diasTrabajadosInput.value = diasTrabajados || 0;
+            metaDiasInput.value = metaDias || 6;
             horasInput.value = horas || 0;
             formTitle.innerText = "Editando a: " + nombre;
             btnSubmit.innerText = "Actualizar Cambios";
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        window.sumarTokensRapido = function(id, tokensActuales, tokensDiariosActuales, cantidad) {
+        window.sumarTokensRapido = function(id, tokensActuales, cantidad) {
             const nuevosTokens = Number(tokensActuales) + cantidad;
-            const nuevosDiarios = Number(tokensDiariosActuales || 0) + cantidad;
-            update(ref(db, 'usuarios/' + id), { 
-                tokens: nuevosTokens,
-                tokensDiarios: nuevosDiarios
-            }).catch((error) => {
+            update(ref(db, 'usuarios/' + id), { tokens: nuevosTokens }).catch((error) => {
                 alert('Error: ' + error.message);
             });
         }
@@ -245,6 +243,13 @@
         window.sumarHoraRapido = function(id, horasActuales, cantidad) {
             const nuevasHoras = Number(horasActuales || 0) + cantidad;
             update(ref(db, 'usuarios/' + id), { horas: nuevasHoras }).catch((error) => {
+                alert('Error: ' + error.message);
+            });
+        }
+
+        window.sumarDiaRapido = function(id, diasActuales, cantidad) {
+            const nuevosDias = Number(diasActuales || 0) + cantidad;
+            update(ref(db, 'usuarios/' + id), { diasTrabajados: nuevosDias }).catch((error) => {
                 alert('Error: ' + error.message);
             });
         }
@@ -259,7 +264,6 @@
             }
         }
 
-        // Función para generar y descargar Excel con SheetJS
         window.descargarExcelConsolidado = function() {
             if (!cacheUsuarios || Object.keys(cacheUsuarios).length === 0) {
                 alert('No hay datos de usuarios para exportar.');
@@ -275,9 +279,9 @@
                     "ID de Usuario": id,
                     "Nombre": u.nombre || "",
                     "Tokens Acumulados": u.tokens || 0,
-                    "Meta Total": u.meta || 0,
-                    "Tokens Diarios": u.tokensDiarios || 0,
-                    "Meta Diaria": u.metaDiaria || 0,
+                    "Meta Total Tokens": u.meta || 0,
+                    "Días Laborados": u.diasTrabajados || 0,
+                    "Meta Semanal Días": u.metaDias || 6,
                     "Horas Acumuladas": u.horas || 0,
                     "Fecha de Consolidado": fechaHoy
                 });
@@ -287,8 +291,7 @@
             let workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Consolidado Semanal");
 
-            // Descargar archivo .xlsx
-            XLSX.writeFile(workbook, `Consolidado_Metas_Tokens_${fechaHoy}.xlsx`);
+            XLSX.writeFile(workbook, `Consolidado_Semanal_${fechaHoy}.xlsx`);
         }
 
         const usuariosRef = ref(db, 'usuarios');
@@ -308,8 +311,8 @@
                 const currentPath = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
                 const linkMedidor = currentPath + 'índice.html?id=' + id;
                 const horasVal = usuario.horas || 0;
-                const tokensDiariosVal = usuario.tokensDiarios || 0;
-                const metaDiariaVal = usuario.metaDiaria || 200;
+                const diasVal = usuario.diasTrabajados || 0;
+                const metaDiasVal = usuario.metaDias || 6;
 
                 const div = document.createElement('div');
                 div.className = 'user-item';
@@ -317,15 +320,16 @@
                     <div class="user-header">
                         <div class="user-info">
                             <h4>${usuario.nombre} (${id})</h4>
-                            <p>T. Acum: ${usuario.tokens}/${usuario.meta} | T. Diario: ${tokensDiariosVal}/${metaDiariaVal} | Horas: ${horasVal}h</p>
+                            <p>Tokens: ${usuario.tokens}/${usuario.meta} | Días: ${diasVal}/${metaDiasVal} | Horas: ${horasVal}h</p>
                         </div>
                     </div>
                     <div class="user-actions">
-                        <button class="btn-action btn-edit" onclick="editarUsuario('${id}', '${usuario.nombre}', ${usuario.tokens}, ${tokensDiariosVal}, ${usuario.meta}, ${metaDiariaVal}, ${horasVal})">✏️ Editar</button>
-                        <button class="btn-action btn-add" onclick="sumarTokensRapido('${id}', ${usuario.tokens}, ${tokensDiariosVal}, 50)">+50 T</button>
-                        <button class="btn-action btn-time" onclick="sumarHoraRapido('${id}', ${horasVal}, 1)">+1 Hora</button>
+                        <button class="btn-action btn-edit" onclick="editarUsuario('${id}', '${usuario.nombre}', ${usuario.tokens}, ${usuario.meta}, ${diasVal}, ${metaDiasVal}, ${horasVal})">✏️ Editar</button>
+                        <button class="btn-action btn-add" onclick="sumarTokensRapido('${id}', ${usuario.tokens}, 50)">+50T</button>
+                        <button class="btn-action btn-day" onclick="sumarDiaRapido('${id}', ${diasVal}, 1)">+1 Día</button>
+                        <button class="btn-action btn-time" onclick="sumarHoraRapido('${id}', ${horasVal}, 1)">+1h</button>
                         <a href="${linkMedidor}" target="_blank" class="btn-action btn-link">🔗 OBS</a>
-                        <button class="btn-action btn-delete" onclick="eliminarUsuario('${id}', '${usuario.nombre}')">🗑️ Borrar</button>
+                        <button class="btn-action btn-delete" onclick="eliminarUsuario('${id}', '${usuario.nombre}')">🗑️</button>
                     </div>
                 `;
                 contenedor.appendChild(div);
