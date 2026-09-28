@@ -37,26 +37,30 @@
         }
         h2 { font-size: 1.2rem; margin-bottom: 5px; }
         .sub-title { font-size: 0.85rem; color: #aaa; margin-bottom: 15px; }
-        .gauge-box {
+        
+        /* Contenedor del medidor circular */
+        .gauge-container {
             position: relative;
-            width: 180px;
-            height: 90px;
-            margin: 10px auto 0 auto;
+            width: 160px;
+            height: 80px;
+            margin: 15px auto 10px auto;
             overflow: hidden;
         }
         .gauge-bg, .gauge-fill {
             position: absolute;
-            top: 0; left: 0;
-            width: 180px; height: 180px;
+            top: 0;
+            left: 0;
+            width: 160px;
+            height: 160px;
             border-radius: 50%;
             box-sizing: border-box;
-            border: 20px solid #2a2a2a;
+            border: 18px solid #2a2a2a;
         }
         .gauge-fill {
             border-color: #00ffcc;
             clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
             transform: rotate(-180deg);
-            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.5s;
+            transition: transform 0.8s ease-in-out;
         }
         .gauge-text {
             position: absolute;
@@ -84,11 +88,11 @@
     <div id="appContainer">
         <div class="dashboard-container" id="dashboard" style="display: none;">
             
-            <!-- Medidor de Tokens -->
+            <!-- Medidor de Tokens Totales -->
             <div class="gauge-card">
                 <h2 id="nombreUsuario">Tokens</h2>
                 <div class="sub-title" id="infoMeta">Meta: 0</div>
-                <div class="gauge-box">
+                <div class="gauge-container">
                     <div class="gauge-bg"></div>
                     <div class="gauge-fill" id="tokenFill"></div>
                     <div class="gauge-text" id="tokenText">0 / 0</div>
@@ -99,7 +103,7 @@
             <div class="gauge-card">
                 <h2>Meta Diaria</h2>
                 <div class="sub-title" id="infoMetaDiaria">Diaria: 0</div>
-                <div class="gauge-box">
+                <div class="gauge-container">
                     <div class="gauge-bg"></div>
                     <div class="gauge-fill" id="dailyFill" style="border-color: #f39c12;"></div>
                     <div class="gauge-text" id="dailyText">0 / 0</div>
@@ -110,7 +114,7 @@
             <div class="gauge-card">
                 <h2>Horas Acumuladas</h2>
                 <div class="sub-title">Escala Máxima: 150h</div>
-                <div class="gauge-box">
+                <div class="gauge-container">
                     <div class="gauge-bg"></div>
                     <div class="gauge-fill" id="hourFill" style="border-color: #9b59b6;"></div>
                     <div class="gauge-text" id="hourText">0h / 150h</div>
@@ -176,30 +180,30 @@
                 const tokensDiarios = Number(data.tokensDiarios || 0);
                 const horas = Number(data.horas || 0);
 
-                // Textos y nombres
+                // Textos
                 document.getElementById('nombreUsuario').innerText = nombre;
                 document.getElementById('infoMeta').innerText = `Meta Total: ${meta}`;
                 document.getElementById('infoMetaDiaria').innerText = `Meta Diaria: ${metaDiaria}`;
 
                 // --- GAUGE TOKEN ---
                 document.getElementById('tokenText').innerText = `${tokens} / ${meta}`;
-                let tokenPct = Math.min((tokens / meta) * 100, 100);
-                let tokenDeg = -180 + (tokenPct * 1.8);
+                let tokenPct = Math.min(tokens / meta, 1);
+                let tokenDeg = -180 + (tokenPct * 180);
                 document.getElementById('tokenFill').style.transform = `rotate(${tokenDeg}deg)`;
 
                 // --- GAUGE DIARIO ---
                 document.getElementById('dailyText').innerText = `${tokensDiarios} / ${metaDiaria}`;
-                let dailyPct = Math.min((tokensDiarios / metaDiaria) * 100, 100);
-                let dailyDeg = -180 + (dailyPct * 1.8);
+                let dailyPct = Math.min(tokensDiarios / metaDiaria, 1);
+                let dailyDeg = -180 + (dailyPct * 180);
                 document.getElementById('dailyFill').style.transform = `rotate(${dailyDeg}deg)`;
 
                 // --- GAUGE HORAS ---
                 document.getElementById('hourText').innerText = `${horas}h / 150h`;
-                let hourPct = Math.min((horas / 150) * 100, 100);
-                let hourDeg = -180 + (hourPct * 1.8);
+                let hourPct = Math.min(horas / 150, 1);
+                let hourDeg = -180 + (hourPct * 180);
                 document.getElementById('hourFill').style.transform = `rotate(${hourDeg}deg)`;
 
-                // Lógica de Audios y Hitos (Tokens Totales)
+                // Lógica de Sonidos y Hitos (Tokens Totales)
                 if (prevTokens !== null && tokens > prevTokens) {
                     document.getElementById('audioToken').play().catch(e => {});
 
