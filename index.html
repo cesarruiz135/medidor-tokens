@@ -38,7 +38,6 @@
         h2 { font-size: 1.2rem; margin-bottom: 5px; }
         .sub-title { font-size: 0.85rem; color: #aaa; margin-bottom: 15px; }
         
-        /* Contenedor del medidor circular */
         .gauge-container {
             position: relative;
             width: 160px;
@@ -62,14 +61,6 @@
             transform: rotate(-180deg);
             transition: transform 0.8s ease-in-out;
         }
-        .gauge-text {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            text-align: center;
-            font-size: 1.2rem;
-            font-weight: bold;
-        }
         .error-msg {
             color: #ff4d4d;
             font-size: 1.5rem;
@@ -78,6 +69,14 @@
             background: rgba(0,0,0,0.9);
             padding: 30px;
             border-radius: 10px;
+        }
+        .gauge-text {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
         }
     </style>
     <!-- Librería de Confeti -->
@@ -99,14 +98,14 @@
                 </div>
             </div>
 
-            <!-- Medidor de Meta Diaria -->
+            <!-- Medidor de Días Laborados -->
             <div class="gauge-card">
-                <h2>Meta Diaria</h2>
-                <div class="sub-title" id="infoMetaDiaria">Diaria: 0</div>
+                <h2>Días Laborados</h2>
+                <div class="sub-title" id="infoMetaDias">Meta Semanal: 6 días</div>
                 <div class="gauge-container">
                     <div class="gauge-bg"></div>
-                    <div class="gauge-fill" id="dailyFill" style="border-color: #f39c12;"></div>
-                    <div class="gauge-text" id="dailyText">0 / 0</div>
+                    <div class="gauge-fill" id="diasFill" style="border-color: #f39c12;"></div>
+                    <div class="gauge-text" id="diasText">0 / 6</div>
                 </div>
             </div>
 
@@ -162,7 +161,8 @@
             dashboard.style.display = 'flex';
             
             const userRef = ref(db, 'usuarios/' + userId);
-            let prevTokens = null;
+            let primerCarga = true;
+            let prevTokens = 0;
             let milestone50 = false;
             let milestone100 = false;
 
@@ -176,14 +176,14 @@
                 const nombre = data.nombre || userId;
                 const tokens = Number(data.tokens || 0);
                 const meta = Number(data.meta || 1000);
-                const metaDiaria = Number(data.metaDiaria || 200);
-                const tokensDiarios = Number(data.tokensDiarios || 0);
+                const diasTrabajados = Number(data.diasTrabajados || 0);
+                const metaDias = Number(data.metaDias || 6);
                 const horas = Number(data.horas || 0);
 
                 // Textos
                 document.getElementById('nombreUsuario').innerText = nombre;
                 document.getElementById('infoMeta').innerText = `Meta Total: ${meta}`;
-                document.getElementById('infoMetaDiaria').innerText = `Meta Diaria: ${metaDiaria}`;
+                document.getElementById('infoMetaDias').innerText = `Meta Semanal: ${metaDias} días`;
 
                 // --- GAUGE TOKEN ---
                 document.getElementById('tokenText').innerText = `${tokens} / ${meta}`;
@@ -191,11 +191,11 @@
                 let tokenDeg = -180 + (tokenPct * 180);
                 document.getElementById('tokenFill').style.transform = `rotate(${tokenDeg}deg)`;
 
-                // --- GAUGE DIARIO ---
-                document.getElementById('dailyText').innerText = `${tokensDiarios} / ${metaDiaria}`;
-                let dailyPct = Math.min(tokensDiarios / metaDiaria, 1);
-                let dailyDeg = -180 + (dailyPct * 180);
-                document.getElementById('dailyFill').style.transform = `rotate(${dailyDeg}deg)`;
+                // --- GAUGE DÍAS ---
+                document.getElementById('diasText').innerText = `${diasTrabajados} / ${metaDias}`;
+                let diasPct = Math.min(diasTrabajados / metaDias, 1);
+                let diasDeg = -180 + (diasPct * 180);
+                document.getElementById('diasFill').style.transform = `rotate(${diasDeg}deg)`;
 
                 // --- GAUGE HORAS ---
                 document.getElementById('hourText').innerText = `${horas}h / 150h`;
@@ -203,23 +203,30 @@
                 let hourDeg = -180 + (hourPct * 180);
                 document.getElementById('hourFill').style.transform = `rotate(${hourDeg}deg)`;
 
-                // Lógica de Sonidos y Hitos (Tokens Totales)
-                if (prevTokens !== null && tokens > prevTokens) {
-                    document.getElementById('audioToken').play().catch(e => {});
+                // Lógica de Sonidos y Hitos (Evita sonido falso al conectar por primera vez)
+                if (primerCarga) {
+                    prevTokens = tokens;
+                    primerCarga = false;
+                    if (tokens >= (meta * 0.5)) milestone50 = true;
+                    if (tokens >= meta) milestone100 = true;
+                } else {
+                    if (tokens > prevTokens) {
+                        document.getElementById('audioToken').play().catch(e => {});
 
-                    if (tokens >= (meta * 0.5) && !milestone50 && tokens < meta) {
-                        milestone50 = true;
-                        document.getElementById('audioGuau').play().catch(e => {});
-                        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-                    }
+                        if (tokens >= (meta * 0.5) && !milestone50 && tokens < meta) {
+                            milestone50 = true;
+                            document.getElementById('audioGuau').play().catch(e => {});
+                            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                        }
 
-                    if (tokens >= meta && !milestone100) {
-                        milestone100 = true;
-                        document.getElementById('audioMeta').play().catch(e => {});
-                        confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 } });
+                        if (tokens >= meta && !milestone100) {
+                            milestone100 = true;
+                            document.getElementById('audioMeta').play().catch(e => {});
+                            confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 } });
+                        }
                     }
+                    prevTokens = tokens;
                 }
-                prevTokens = tokens;
             });
         }
     </script>
