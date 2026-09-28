@@ -3,170 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Transmisión</title>
-    <!-- Librería de Confeti -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <title>Medidor de Streaming</title>
     <style>
         body {
-            background-color: transparent; 
+            background-color: transparent;
+            margin: 0;
+            padding: 20px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            margin: 0;
             overflow: hidden;
-            gap: 20px;
+            color: white;
         }
-        .card {
-            background: #18191c;
-            border: 1px solid #2f3136;
-            padding: 30px;
+        .dashboard-container {
+            display: flex;
+            gap: 30px;
+            background: rgba(18, 18, 18, 0.85);
+            padding: 25px;
             border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            backdrop-filter: blur(5px);
+        }
+        .gauge-card {
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 15px;
             text-align: center;
-            width: 300px;
+            width: 250px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border: 1px solid #333;
+        }
+        h2 { font-size: 1.2rem; margin-bottom: 5px; }
+        .sub-title { font-size: 0.85rem; color: #aaa; margin-bottom: 15px; }
+        .gauge-box {
             position: relative;
-        }
-        h2 {
-            color: #00ffcc;
-            margin: 0 0 5px 0;
-            font-size: 1.3rem;
-            text-shadow: 0 0 10px rgba(0,255,204,0.3);
-        }
-        #nombreUsuario, #nombreHoras {
-            color: #b9bbbe;
-            font-size: 1rem;
-            margin-bottom: 20px;
-            font-weight: 600;
-        }
-        .gauge-container {
-            position: relative;
-            width: 220px;
-            height: 110px;
-            margin: 0 auto 15px auto;
+            width: 180px;
+            height: 90px;
+            margin: 10px auto 0 auto;
             overflow: hidden;
         }
-        .gauge-bg {
-            width: 220px;
-            height: 220px;
-            border-radius: 50%;
-            background: conic-gradient(from 270deg, #ffd700 0deg, #00ffcc 180deg, transparent 180deg);
+        .gauge-bg, .gauge-fill {
             position: absolute;
-            top: 0;
-            left: 0;
+            top: 0; left: 0;
+            width: 180px; height: 180px;
+            border-radius: 50%;
+            box-sizing: border-box;
+            border: 20px solid #2a2a2a;
+        }
+        .gauge-fill {
+            border-color: #00ffcc;
             clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
+            transform: rotate(-180deg);
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.5s;
         }
-        .gauge-cover {
-            width: 170px;
-            height: 170px;
-            background: #18191c;
-            border-radius: 50%;
-            position: absolute;
-            top: 25px;
-            left: 25px;
-        }
-        .needle {
-            width: 4px;
-            height: 85px;
-            background: white;
+        .gauge-text {
             position: absolute;
             bottom: 0;
-            left: 108px;
-            transform-origin: bottom center;
-            transform: rotate(-90deg);
-            transition: transform 0.8s cubic-bezier(0.4, 2.08, 0.55, 0.44);
-            border-radius: 4px 4px 0 0;
-            box-shadow: 0 0 8px rgba(255,255,255,0.8);
-        }
-        .needle-center {
-            width: 16px;
-            height: 16px;
-            background: white;
-            border-radius: 50%;
-            position: absolute;
-            bottom: -8px;
-            left: 102px;
-            box-shadow: 0 0 10px rgba(255,255,255,0.8);
-        }
-        .stats {
-            font-size: 1.4rem;
+            width: 100%;
+            text-align: center;
+            font-size: 1.2rem;
             font-weight: bold;
-            color: #00ffcc;
-            text-shadow: 0 0 8px rgba(0,255,204,0.4);
         }
         .error-msg {
-            color: #ff5252;
-            font-size: 1.1rem;
+            color: #ff4d4d;
+            font-size: 1.5rem;
             font-weight: bold;
-        }
-        #unlockAudio {
-            position: fixed;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #00ffcc;
-            color: #121212;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 20px;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 0.9rem;
-            z-index: 999;
-            box-shadow: 0 4px 10px rgba(0,255,204,0.4);
-        }
-        #eventoNotificacion {
-            margin-top: 10px;
-            font-size: 0.85rem;
-            font-weight: bold;
-            color: #ffd700;
-            min-height: 18px;
+            text-align: center;
+            background: rgba(0,0,0,0.9);
+            padding: 30px;
+            border-radius: 10px;
         }
     </style>
+    <!-- Librería de Confeti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
 </head>
 <body>
 
-    <button id="unlockAudio" onclick="activarAudio()">🔊 Clic aquí para habilitar Audio</button>
+    <div id="appContainer">
+        <div class="dashboard-container" id="dashboard" style="display: none;">
+            
+            <!-- Medidor de Tokens -->
+            <div class="gauge-card">
+                <h2 id="nombreUsuario">Tokens</h2>
+                <div class="sub-title" id="infoMeta">Meta: 0</div>
+                <div class="gauge-box">
+                    <div class="gauge-bg"></div>
+                    <div class="gauge-fill" id="tokenFill"></div>
+                    <div class="gauge-text" id="tokenText">0 / 0</div>
+                </div>
+            </div>
 
-    <!-- TARJETA 1: MEDIDOR DE TOKENS -->
-    <div class="card" id="cardContainer">
-        <h2>Medidor de Tokens</h2>
-        <div id="nombreUsuario">Cargando...</div>
-        
-        <div class="gauge-container" id="gaugeBox">
-            <div class="gauge-bg"></div>
-            <div class="gauge-cover"></div>
-            <div class="needle" id="needleTokens"></div>
-            <div class="needle-center"></div>
+            <!-- Medidor de Meta Diaria -->
+            <div class="gauge-card">
+                <h2>Meta Diaria</h2>
+                <div class="sub-title" id="infoMetaDiaria">Diaria: 0</div>
+                <div class="gauge-box">
+                    <div class="gauge-bg"></div>
+                    <div class="gauge-fill" id="dailyFill" style="border-color: #f39c12;"></div>
+                    <div class="gauge-text" id="dailyText">0 / 0</div>
+                </div>
+            </div>
+
+            <!-- Medidor de Horas -->
+            <div class="gauge-card">
+                <h2>Horas Acumuladas</h2>
+                <div class="sub-title">Escala Máxima: 150h</div>
+                <div class="gauge-box">
+                    <div class="gauge-bg"></div>
+                    <div class="gauge-fill" id="hourFill" style="border-color: #9b59b6;"></div>
+                    <div class="gauge-text" id="hourText">0h / 150h</div>
+                </div>
+            </div>
+
         </div>
 
-        <div class="stats" id="statsTokens">0 / 0</div>
-        <div id="eventoNotificacion"></div>
-    </div>
-
-    <!-- TARJETA 2: MEDIDOR DE HORAS -->
-    <div class="card" id="cardContainerHoras">
-        <h2>Horas Acumuladas</h2>
-        <div id="nombreHoras">Cargando...</div>
-        
-        <div class="gauge-container">
-            <div class="gauge-bg" style="background: conic-gradient(from 270deg, #3498db 0deg, #9b59b6 180deg, transparent 180deg);"></div>
-            <div class="gauge-cover"></div>
-            <div class="needle" id="needleHoras"></div>
-            <div class="needle-center"></div>
+        <div id="errorBox" class="error-msg" style="display: none;">
+            Falta el ?id=usuario en el enlace de OBS
         </div>
-
-        <div class="stats" id="statsHoras" style="color: #3498db; text-shadow: 0 0 8px rgba(52,152,219,0.4);">0 hrs</div>
-        <div style="margin-top: 10px; font-size: 0.85rem; color: #777;">Escala Máxima: 150 Horas</div>
     </div>
 
-    <!-- Archivos de Audio -->
-    <audio id="audioToken" src="token.mp3" preload="auto"></audio>
-    <audio id="audioGuau" src="guau.mp3" preload="auto"></audio>
-    <audio id="audioMeta" src="meta.mp3" preload="auto"></audio>
+    <!-- Audios -->
+    <audio id="audioToken" src="ficha.mp3"></audio>
+    <audio id="audioGuau" src="guau.mp3"></audio>
+    <audio id="audioMeta" src="meta.mp3"></audio>
 
-    <!-- Firebase y Lógica -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -187,113 +149,73 @@
         const urlParams = new URLSearchParams(window.location.search);
         const userId = urlParams.get('id');
 
-        const nombreEl = document.getElementById('nombreUsuario');
-        const statsTokensEl = document.getElementById('statsTokens');
-        const needleTokensEl = document.getElementById('needleTokens');
-        const gaugeBox = document.getElementById('gaugeBox');
-        const eventoNoti = document.getElementById('eventoNotificacion');
-        
-        const nombreHorasEl = document.getElementById('nombreHoras');
-        const statsHorasEl = document.getElementById('statsHoras');
-        const needleHorasEl = document.getElementById('needleHoras');
-
-        const audioToken = document.getElementById('audioToken');
-        const audioGuau = document.getElementById('audioGuau');
-        const audioMeta = document.getElementById('audioMeta');
-
-        window.activarAudio = function() {
-            document.getElementById('unlockAudio').style.display = 'none';
-            [audioToken, audioGuau, audioMeta].forEach(audio => {
-                audio.play().then(() => {
-                    audio.pause();
-                    audio.currentTime = 0;
-                }).catch(e => {});
-            });
-            eventoNoti.innerText = "¡Audio activado correctamente!";
-            setTimeout(() => eventoNoti.innerText = "", 3000);
-        }
+        const dashboard = document.getElementById('dashboard');
+        const errorBox = document.getElementById('errorBox');
 
         if (!userId) {
-            nombreEl.innerHTML = '<span class="error-msg">Falta el ?id=usuario</span>';
-            nombreHorasEl.innerHTML = '<span class="error-msg">Falta el ?id=usuario</span>';
-            gaugeBox.style.display = 'none';
-            statsTokensEl.style.display = 'none';
-            statsHorasEl.style.display = 'none';
-            document.getElementById('unlockAudio').style.display = 'none';
+            errorBox.style.display = 'block';
         } else {
+            dashboard.style.display = 'flex';
+            
             const userRef = ref(db, 'usuarios/' + userId);
-            let tokenAnterior = null;
-            let yaLlegoAMeta = false;
-            let yaLlegoAMitad = false;
-            const maxHorasMeta = 150; // Escala máxima de horas
+            let prevTokens = null;
+            let milestone50 = false;
+            let milestone100 = false;
 
             onValue(userRef, (snapshot) => {
                 const data = snapshot.val();
-
                 if (!data) {
-                    nombreEl.innerText = "Usuario no encontrado";
-                    nombreHorasEl.innerText = "Usuario no encontrado";
+                    document.getElementById('nombreUsuario').innerText = "Usuario no existe";
                     return;
                 }
 
                 const nombre = data.nombre || userId;
-                
-                // --- ACTUALIZAR TOKENS ---
                 const tokens = Number(data.tokens || 0);
                 const meta = Number(data.meta || 1000);
-                const mitadMeta = meta / 2;
+                const metaDiaria = Number(data.metaDiaria || 200);
+                const tokensDiarios = Number(data.tokensDiarios || 0);
+                const horas = Number(data.horas || 0);
 
-                nombreEl.innerText = nombre;
-                statsTokensEl.innerText = `${tokens} / ${meta}`;
+                // Textos y nombres
+                document.getElementById('nombreUsuario').innerText = nombre;
+                document.getElementById('infoMeta').innerText = `Meta Total: ${meta}`;
+                document.getElementById('infoMetaDiaria').innerText = `Meta Diaria: ${metaDiaria}`;
 
-                let porcentajeTokens = tokens / meta;
-                if (porcentajeTokens > 1) porcentajeTokens = 1;
-                needleTokensEl.style.transform = `rotate(${-90 + (porcentajeTokens * 180)}deg)`;
+                // --- GAUGE TOKEN ---
+                document.getElementById('tokenText').innerText = `${tokens} / ${meta}`;
+                let tokenPct = Math.min((tokens / meta) * 100, 100);
+                let tokenDeg = -180 + (tokenPct * 1.8);
+                document.getElementById('tokenFill').style.transform = `rotate(${tokenDeg}deg)`;
 
-                if (tokenAnterior === null) {
-                    if (tokens >= meta) yaLlegoAMeta = true;
-                    if (tokens >= mitadMeta) yaLlegoAMitad = true;
-                } else if (tokens > tokenAnterior) {
-                    if (tokens >= meta && !yaLlegoAMeta) {
-                        yaLlegoAMeta = true;
-                        eventoNoti.innerText = "🎉 ¡Llegaron a la Meta!";
-                        reproducirAudio(audioMeta);
-                        lanzarConfetiMeta();
-                    } else if (tokens >= mitadMeta && tokens < meta && !yaLlegoAMitad) {
-                        yaLlegoAMitad = true;
-                        eventoNoti.innerText = "🔥 ¡A la Mitad de la Meta!";
-                        reproducirAudio(audioGuau);
-                    } else {
-                        reproducirAudio(audioToken);
+                // --- GAUGE DIARIO ---
+                document.getElementById('dailyText').innerText = `${tokensDiarios} / ${metaDiaria}`;
+                let dailyPct = Math.min((tokensDiarios / metaDiaria) * 100, 100);
+                let dailyDeg = -180 + (dailyPct * 1.8);
+                document.getElementById('dailyFill').style.transform = `rotate(${dailyDeg}deg)`;
+
+                // --- GAUGE HORAS ---
+                document.getElementById('hourText').innerText = `${horas}h / 150h`;
+                let hourPct = Math.min((horas / 150) * 100, 100);
+                let hourDeg = -180 + (hourPct * 1.8);
+                document.getElementById('hourFill').style.transform = `rotate(${hourDeg}deg)`;
+
+                // Lógica de Audios y Hitos (Tokens Totales)
+                if (prevTokens !== null && tokens > prevTokens) {
+                    document.getElementById('audioToken').play().catch(e => {});
+
+                    if (tokens >= (meta * 0.5) && !milestone50 && tokens < meta) {
+                        milestone50 = true;
+                        document.getElementById('audioGuau').play().catch(e => {});
+                        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                    }
+
+                    if (tokens >= meta && !milestone100) {
+                        milestone100 = true;
+                        document.getElementById('audioMeta').play().catch(e => {});
+                        confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 } });
                     }
                 }
-                
-                if (tokens < meta) yaLlegoAMeta = false;
-                if (tokens < mitadMeta) yaLlegoAMitad = false;
-                tokenAnterior = tokens;
-
-                // --- ACTUALIZAR HORAS ---
-                const horas = Number(data.horas || 0);
-                nombreHorasEl.innerText = nombre;
-                statsHorasEl.innerText = `${horas} hrs`;
-
-                let porcentajeHoras = horas / maxHorasMeta;
-                if (porcentajeHoras > 1) porcentajeHoras = 1;
-                needleHorasEl.style.transform = `rotate(${-90 + (porcentajeHoras * 180)}deg)`;
-            });
-        }
-
-        function reproducirAudio(elementoAudio) {
-            elementoAudio.currentTime = 0;
-            elementoAudio.play().catch(error => {});
-        }
-
-        function lanzarConfetiMeta() {
-            confetti({
-                particleCount: 200,
-                spread: 120,
-                origin: { y: 0.6 },
-                colors: ['#00ffcc', '#ffd700', '#ffffff', '#ff4757']
+                prevTokens = tokens;
             });
         }
     </script>
