@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Administración - Medidor</title>
+    <!-- Librería SheetJS para exportar a Excel de forma nativa en el navegador -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         body {
             background-color: #121212;
@@ -24,7 +26,7 @@
             max-width: 500px;
             margin-bottom: 30px;
         }
-        h2 { color: #00ffcc; text-align: center; margin-top: 0; }
+        h2, h3 { color: #00ffcc; text-align: center; margin-top: 0; }
         .form-group {
             margin-bottom: 15px;
         }
@@ -54,6 +56,13 @@
             margin-top: 10px;
         }
         button:hover { background: #00b38f; }
+        .btn-excel {
+            background: #27ae60;
+            color: white;
+            margin-bottom: 20px;
+        }
+        .btn-excel:hover { background: #219653; }
+
         .user-list {
             width: 100%;
             max-width: 500px;
@@ -75,7 +84,7 @@
             margin-bottom: 10px;
         }
         .user-info h4 { margin: 0 0 3px 0; color: #00ffcc; }
-        .user-info p { margin: 0; color: #888; font-size: 0.9rem; }
+        .user-info p { margin: 0; color: #888; font-size: 0.85rem; }
         
         .user-actions {
             display: flex;
@@ -84,7 +93,7 @@
         }
         .btn-action {
             flex: 1;
-            min-width: 80px;
+            min-width: 75px;
             padding: 6px 8px;
             border: none;
             border-radius: 6px;
@@ -96,16 +105,12 @@
         }
         .btn-link { background: #3498db; color: white; }
         .btn-link:hover { background: #2980b9; }
-        
         .btn-edit { background: #f39c12; color: white; }
         .btn-edit:hover { background: #d68910; }
-
         .btn-add { background: #2ecc71; color: white; }
         .btn-add:hover { background: #27ae60; }
-
         .btn-time { background: #9b59b6; color: white; }
         .btn-time:hover { background: #8e44ad; }
-
         .btn-delete { background: #e74c3c; color: white; }
         .btn-delete:hover { background: #c0392b; }
     </style>
@@ -116,7 +121,7 @@
         <h2 id="formTitle">Panel Administrador</h2>
         <form id="userForm">
             <div class="form-group">
-                <label>ID Único (ej: juan, maria - sin espacios ni mayúsculas):</label>
+                <label>ID Único (ej: juan, maria - sin espacios):</label>
                 <input type="text" id="userId" required placeholder="Ej: juan">
             </div>
             <div class="form-group">
@@ -124,12 +129,20 @@
                 <input type="text" id="nombre" required placeholder="Ej: Juan Pérez">
             </div>
             <div class="form-group">
-                <label>Tokens Actuales:</label>
+                <label>Tokens Acumulados:</label>
                 <input type="number" id="tokens" required value="0">
+            </div>
+            <div class="form-group">
+                <label>Tokens Diarios Actuales:</label>
+                <input type="number" id="tokensDiarios" required value="0">
             </div>
             <div class="form-group">
                 <label>Meta Total de Tokens:</label>
                 <input type="number" id="meta" required value="1000">
+            </div>
+            <div class="form-group">
+                <label>Meta Diaria de Tokens:</label>
+                <input type="number" id="metaDiaria" required value="200">
             </div>
             <div class="form-group">
                 <label>Horas Acumuladas:</label>
@@ -141,6 +154,7 @@
 
     <div class="user-list">
         <h3>Usuarios Registrados</h3>
+        <button class="btn-action btn-excel" onclick="descargarExcelConsolidado()">📊 Descargar Consolidado Semanal (Excel)</button>
         <div id="listaUsuarios">Cargando usuarios...</div>
     </div>
 
@@ -166,23 +180,31 @@
         const userIdInput = document.getElementById('userId');
         const nombreInput = document.getElementById('nombre');
         const tokensInput = document.getElementById('tokens');
+        const tokensDiariosInput = document.getElementById('tokensDiarios');
         const metaInput = document.getElementById('meta');
+        const metaDiariaInput = document.getElementById('metaDiaria');
         const horasInput = document.getElementById('horas');
         const btnSubmit = document.getElementById('btnSubmit');
         const formTitle = document.getElementById('formTitle');
+
+        let cacheUsuarios = {};
 
         userForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const id = userIdInput.value.trim().toLowerCase();
             const nombre = nombreInput.value;
             const tokens = Number(tokensInput.value);
+            const tokensDiarios = Number(tokensDiariosInput.value);
             const meta = Number(metaInput.value);
+            const metaDiaria = Number(metaDiariaInput.value);
             const horas = Number(horasInput.value);
 
             set(ref(db, 'usuarios/' + id), {
                 nombre: nombre,
                 tokens: tokens,
+                tokensDiarios: tokensDiarios,
                 meta: meta,
+                metaDiaria: metaDiaria,
                 horas: horas
             }).then(() => {
                 alert('¡Usuario guardado con éxito!');
@@ -195,21 +217,27 @@
             });
         });
 
-        window.editarUsuario = function(id, nombre, tokens, meta, horas) {
+        window.editarUsuario = function(id, nombre, tokens, tokensDiarios, meta, metaDiaria, horas) {
             userIdInput.value = id;
             userIdInput.disabled = true;
             nombreInput.value = nombre;
             tokensInput.value = tokens;
+            tokensDiariosInput.value = tokensDiarios || 0;
             metaInput.value = meta;
+            metaDiariaInput.value = metaDiaria || 200;
             horasInput.value = horas || 0;
             formTitle.innerText = "Editando a: " + nombre;
             btnSubmit.innerText = "Actualizar Cambios";
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        window.sumarTokensRapido = function(id, tokensActuales, cantidad) {
+        window.sumarTokensRapido = function(id, tokensActuales, tokensDiariosActuales, cantidad) {
             const nuevosTokens = Number(tokensActuales) + cantidad;
-            update(ref(db, 'usuarios/' + id), { tokens: nuevosTokens }).catch((error) => {
+            const nuevosDiarios = Number(tokensDiariosActuales || 0) + cantidad;
+            update(ref(db, 'usuarios/' + id), { 
+                tokens: nuevosTokens,
+                tokensDiarios: nuevosDiarios
+            }).catch((error) => {
                 alert('Error: ' + error.message);
             });
         }
@@ -221,20 +249,52 @@
             });
         }
 
-        // Función para eliminar usuario con confirmación
         window.eliminarUsuario = function(id, nombre) {
-            if (confirm(`¿Estás seguro de que deseas eliminar a "${nombre}" (${id})? Esta acción no se puede deshacer.`)) {
+            if (confirm(`¿Estás seguro de eliminar a "${nombre}" (${id})?`)) {
                 remove(ref(db, 'usuarios/' + id)).then(() => {
-                    alert('Usuario eliminado correctamente.');
+                    alert('Usuario eliminado.');
                 }).catch((error) => {
-                    alert('Error al eliminar: ' + error.message);
+                    alert('Error: ' + error.message);
                 });
             }
+        }
+
+        // Función para generar y descargar Excel con SheetJS
+        window.descargarExcelConsolidado = function() {
+            if (!cacheUsuarios || Object.keys(cacheUsuarios).length === 0) {
+                alert('No hay datos de usuarios para exportar.');
+                return;
+            }
+
+            let datosParaExcel = [];
+            let fechaHoy = new Date().toISOString().split('T')[0];
+
+            for (let id in cacheUsuarios) {
+                let u = cacheUsuarios[id];
+                datosParaExcel.push({
+                    "ID de Usuario": id,
+                    "Nombre": u.nombre || "",
+                    "Tokens Acumulados": u.tokens || 0,
+                    "Meta Total": u.meta || 0,
+                    "Tokens Diarios": u.tokensDiarios || 0,
+                    "Meta Diaria": u.metaDiaria || 0,
+                    "Horas Acumuladas": u.horas || 0,
+                    "Fecha de Consolidado": fechaHoy
+                });
+            }
+
+            let worksheet = XLSX.utils.json_to_sheet(datosParaExcel);
+            let workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Consolidado Semanal");
+
+            // Descargar archivo .xlsx
+            XLSX.writeFile(workbook, `Consolidado_Metas_Tokens_${fechaHoy}.xlsx`);
         }
 
         const usuariosRef = ref(db, 'usuarios');
         onValue(usuariosRef, (snapshot) => {
             const data = snapshot.val();
+            cacheUsuarios = data || {};
             const contenedor = document.getElementById('listaUsuarios');
             contenedor.innerHTML = '';
 
@@ -246,8 +306,10 @@
             for (let id in data) {
                 const usuario = data[id];
                 const currentPath = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
-                const linkMedidor = currentPath + 'index.html?id=' + id;
+                const linkMedidor = currentPath + 'índice.html?id=' + id;
                 const horasVal = usuario.horas || 0;
+                const tokensDiariosVal = usuario.tokensDiarios || 0;
+                const metaDiariaVal = usuario.metaDiaria || 200;
 
                 const div = document.createElement('div');
                 div.className = 'user-item';
@@ -255,14 +317,14 @@
                     <div class="user-header">
                         <div class="user-info">
                             <h4>${usuario.nombre} (${id})</h4>
-                            <p>Tokens: ${usuario.tokens} / ${usuario.meta} | Horas: ${horasVal}h</p>
+                            <p>T. Acum: ${usuario.tokens}/${usuario.meta} | T. Diario: ${tokensDiariosVal}/${metaDiariaVal} | Horas: ${horasVal}h</p>
                         </div>
                     </div>
                     <div class="user-actions">
-                        <button class="btn-action btn-edit" onclick="editarUsuario('${id}', '${usuario.nombre}', ${usuario.tokens}, ${usuario.meta}, ${horasVal})">✏️ Editar</button>
-                        <button class="btn-action btn-add" onclick="sumarTokensRapido('${id}', ${usuario.tokens}, 50)">+50 T</button>
+                        <button class="btn-action btn-edit" onclick="editarUsuario('${id}', '${usuario.nombre}', ${usuario.tokens}, ${tokensDiariosVal}, ${usuario.meta}, ${metaDiariaVal}, ${horasVal})">✏️ Editar</button>
+                        <button class="btn-action btn-add" onclick="sumarTokensRapido('${id}', ${usuario.tokens}, ${tokensDiariosVal}, 50)">+50 T</button>
                         <button class="btn-action btn-time" onclick="sumarHoraRapido('${id}', ${horasVal}, 1)">+1 Hora</button>
-                        <a href="${linkMedidor}" target="_blank" class="btn-action btn-link">🔗 Link OBS</a>
+                        <a href="${linkMedidor}" target="_blank" class="btn-action btn-link">🔗 OBS</a>
                         <button class="btn-action btn-delete" onclick="eliminarUsuario('${id}', '${usuario.nombre}')">🗑️ Borrar</button>
                     </div>
                 `;
