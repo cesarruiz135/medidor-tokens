@@ -78,16 +78,35 @@
             font-size: 1.2rem;
             font-weight: bold;
         }
+        /* Botón para desbloquear audios */
+        #btnAudio {
+            position: fixed;
+            top: 10px;
+            background: #00ffcc;
+            color: #121212;
+            border: none;
+            padding: 10px 20px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 999;
+            transition: background 0.3s;
+        }
+        #btnAudio:hover { background: #00b38f; }
     </style>
     <!-- Librería de Confeti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
 </head>
 <body>
 
+    <!-- Botón para habilitar notificaciones de audio por políticas del navegador -->
+    <button id="btnAudio" onclick="habilitarAudio()">🔊 Activar Sonidos y Notificaciones</button>
+
     <div id="appContainer">
         <div class="dashboard-container" id="dashboard" style="display: none;">
             
-            <!-- Medidor de Tokens Totales -->
+            <!-- 1. Medidor de Tokens Totales -->
             <div class="gauge-card">
                 <h2 id="nombreUsuario">Tokens</h2>
                 <div class="sub-title" id="infoMeta">Meta: 0</div>
@@ -98,18 +117,7 @@
                 </div>
             </div>
 
-            <!-- Medidor de Días Laborados -->
-            <div class="gauge-card">
-                <h2>Días Laborados</h2>
-                <div class="sub-title" id="infoMetaDias">Meta Semanal: 6 días</div>
-                <div class="gauge-container">
-                    <div class="gauge-bg"></div>
-                    <div class="gauge-fill" id="diasFill" style="border-color: #f39c12;"></div>
-                    <div class="gauge-text" id="diasText">0 / 6</div>
-                </div>
-            </div>
-
-            <!-- Medidor de Horas -->
+            <!-- 2. Medidor de Horas Acumuladas -->
             <div class="gauge-card">
                 <h2>Horas Acumuladas</h2>
                 <div class="sub-title">Escala Máxima: 150h</div>
@@ -117,6 +125,17 @@
                     <div class="gauge-bg"></div>
                     <div class="gauge-fill" id="hourFill" style="border-color: #9b59b6;"></div>
                     <div class="gauge-text" id="hourText">0h / 150h</div>
+                </div>
+            </div>
+
+            <!-- 3. Medidor de Días Laborados -->
+            <div class="gauge-card">
+                <h2>Días Laborados</h2>
+                <div class="sub-title" id="infoMetaDias">Meta Semanal: 6 días</div>
+                <div class="gauge-container">
+                    <div class="gauge-bg"></div>
+                    <div class="gauge-fill" id="diasFill" style="border-color: #f39c12;"></div>
+                    <div class="gauge-text" id="diasText">0 / 6</div>
                 </div>
             </div>
 
@@ -128,9 +147,29 @@
     </div>
 
     <!-- Audios -->
-    <audio id="audioToken" src="ficha.mp3"></audio>
-    <audio id="audioGuau" src="guau.mp3"></audio>
-    <audio id="audioMeta" src="meta.mp3"></audio>
+    <audio id="audioToken" src="ficha.mp3" preload="auto"></audio>
+    <audio id="audioGuau" src="guau.mp3" preload="auto"></audio>
+    <audio id="audioMeta" src="meta.mp3" preload="auto"></audio>
+
+    <script>
+        // Función global para desbloquear los audios al hacer clic
+        window.habilitarAudio = function() {
+            const a1 = document.getElementById('audioToken');
+            const a2 = document.getElementById('audioGuau');
+            const a3 = document.getElementById('audioMeta');
+            
+            // Reproducir y pausar inmediatamente para dar permisos de audio al navegador
+            [a1, a2, a3].forEach(audio => {
+                audio.play().then(() => {
+                    audio.pause();
+                    audio.currentTime = 0;
+                }).catch(e => {});
+            });
+
+            document.getElementById('btnAudio').style.display = 'none';
+            alert('¡Sonidos y notificaciones activados correctamente!');
+        }
+    </script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -157,6 +196,7 @@
 
         if (!userId) {
             errorBox.style.display = 'block';
+            document.getElementById('btnAudio').style.display = 'none';
         } else {
             dashboard.style.display = 'flex';
             
@@ -185,25 +225,25 @@
                 document.getElementById('infoMeta').innerText = `Meta Total: ${meta}`;
                 document.getElementById('infoMetaDias').innerText = `Meta Semanal: ${metaDias} días`;
 
-                // --- GAUGE TOKEN ---
+                // --- 1. GAUGE TOKEN ---
                 document.getElementById('tokenText').innerText = `${tokens} / ${meta}`;
                 let tokenPct = Math.min(tokens / meta, 1);
                 let tokenDeg = -180 + (tokenPct * 180);
                 document.getElementById('tokenFill').style.transform = `rotate(${tokenDeg}deg)`;
 
-                // --- GAUGE DÍAS ---
-                document.getElementById('diasText').innerText = `${diasTrabajados} / ${metaDias}`;
-                let diasPct = Math.min(diasTrabajados / metaDias, 1);
-                let diasDeg = -180 + (diasPct * 180);
-                document.getElementById('diasFill').style.transform = `rotate(${diasDeg}deg)`;
-
-                // --- GAUGE HORAS ---
+                // --- 2. GAUGE HORAS ---
                 document.getElementById('hourText').innerText = `${horas}h / 150h`;
                 let hourPct = Math.min(horas / 150, 1);
                 let hourDeg = -180 + (hourPct * 180);
                 document.getElementById('hourFill').style.transform = `rotate(${hourDeg}deg)`;
 
-                // Lógica de Sonidos y Hitos (Evita sonido falso al conectar por primera vez)
+                // --- 3. GAUGE DÍAS ---
+                document.getElementById('diasText').innerText = `${diasTrabajados} / ${metaDias}`;
+                let diasPct = Math.min(diasTrabajados / metaDias, 1);
+                let diasDeg = -180 + (diasPct * 180);
+                document.getElementById('diasFill').style.transform = `rotate(${diasDeg}deg)`;
+
+                // Lógica de Sonidos y Hitos
                 if (primerCarga) {
                     prevTokens = tokens;
                     primerCarga = false;
